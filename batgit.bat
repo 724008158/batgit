@@ -45,8 +45,7 @@ echo *  2: 拉取更新所有分支到本地                                 *
 echo *  3: 暂存修改文件                                           *
 echo *  4: 暂存修改恢复到项目中                                   *
 echo *  5: 克隆项目                                               *
-echo *  30: 提交单个文件或目录[自定义]                            *
-echo *  31: 提交所有更改                                          *
+echo *  30: 提交提交所有更改或单个文件或目录                      *
 echo *  50: 查看分支                                              *
 echo *  51: 新建分支                                              *
 echo *  52: 合并分支                                              *
@@ -69,8 +68,7 @@ if "%input%"=="2" goto git_pull_all
 if "%input%"=="3" goto git_stash_commit
 if "%input%"=="4" goto git_stash_renew
 if "%input%"=="5" goto git_clone
-if "%input%"=="30" goto git_push_custom
-if "%input%"=="31" goto git_push_all
+if "%input%"=="30" goto git_push
 if "%input%"=="50" goto git_branch_list
 if "%input%"=="51" goto todo
 if "%input%"=="52" goto git_branch_merge
@@ -123,7 +121,7 @@ set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
 for %%I in (%pull_branch%) do (
 	%git_cmd% checkout %%I
 	%git_cmd% pull origin %%I
-	if not %errorlevel%==0 (	
+	if not %errorlevel%==0 (
 		rem 成功则返回0
 		call :error 冲突了
 	)
@@ -134,51 +132,7 @@ echo -------更新完成----------
 echo -------当前分支%current_branch%----------
 goto confirm
 
-:git_push_custom
-rem 查看本地仓库的当前状态
-%git_cmd% status
-rem 常看当前项目的具体修改内容
-rem %git_cmd% diff
-rem 保存当前的工作进度，会把暂存区和工作区的改动保存起来
-%git_cmd% stash save stash time:%timestamp% 
-rem 获取远程仓库的最新代码
-rem %git_cmd% pull
-rem 恢复最新的进度到工作区，这个过程会合并git pull到本地的远程仓库中的代码，这个过程可能会有冲突警告
-rem git stash不针对特定的分支，切换分支后，stash内容不变，所以弹出时要小心。git stash pop或者drop后，stash的序号会自动改变，连续弹出时要注意
-%git_cmd% stash pop
-if not %errorlevel%==0 (	
-	rem 成功则返回0
- 	call :error 冲突了
-)
-rem 设置默认值
-set op=1
-echo 1:提交所有更改[默认]
-echo 2:自定义提交文件或目录
-set /p op=请选择:
-if %op% == "2" (
-	set/p files=请输入要上传的文件或目录：
-	if "%files%" == "" (
-		call :checkEmpty %files% 不能输入空数据
-	)
-	%git_cmd% add %files%
-) else (
-	rem git add -A  提交所有变化
-	rem git add -u  提交被修改(modified)和被删除(deleted)文件，不包括新文件(new)
-	rem git add .  提交新文件(new)和被修改(modified)文件，不包括被删除(deleted)文件
-
-	%git_cmd% add -A
-)
-set msg=
-set /p msg=输入提交的commit信息:
-if %msg% == "" (
-	call :error commit信息不能为空
-)
-%git_cmd% commit -m %msg% 
-rem 将本地仓库的代码推送到远程代码仓库
-%git_cmd% push
-goto confirm
-
-:git_push_all
+:git_push
 rem 查看本地仓库的当前状态
 %git_cmd% status
 rem 常看当前项目的具体修改内容
@@ -190,18 +144,32 @@ rem 获取远程仓库的最新代码
 rem 恢复最新的进度到工作区，这个过程会合并git pull到本地的远程仓库中的代码，这个过程可能会有冲突警告
 rem git stash不针对特定的分支，切换分支后，stash内容不变，所以弹出时要小心。git stash pop或者drop后，stash的序号会自动改变，连续弹出时要注意
 %git_cmd% stash pop
-if not %errorlevel%==0 (	
+if %errorlevel%==1 (
+	call :error 没有任何修改
+)
+if not %errorlevel%==0 (
 	rem 成功则返回0
-	call :error 冲突了
+	call :error 出错了，errorlevel为：%errorlevel%
+)
+rem 设置默认值
+set op=1
+echo 1:提交所有更改[默认]
+echo 2:自定义提交文件或目录
+set /p op=请选择:
+if %op% == "2" (
+	set files=
+	set/p files=请输入要上传的文件或目录：
+	call :checkEmpty "%files%" 不能输入空数据
+	%git_cmd% add %files%
+) else (
+	rem git add -A  提交所有变化
+	rem git add -u  提交被修改(modified)和被删除(deleted)文件，不包括新文件(new)
+	rem git add .  提交新文件(new)和被修改(modified)文件，不包括被删除(deleted)文件
+	%git_cmd% add -A
 )
 set msg=
 set /p msg=输入提交的commit信息:
-if %msg% == "" (
-	call :error commit信息不能为空
-)
-rem 将所有新建和修改的源文件添加到暂存区
-%git_cmd% add .
-rem commit提交
+call :checkEmpty "%msg%" commit信息不能为空
 %git_cmd% commit -m %msg% 
 rem 将本地仓库的代码推送到远程代码仓库
 %git_cmd% push
