@@ -170,7 +170,7 @@ if %op% == "2" (
 set msg=
 set /p msg=输入提交的commit信息:
 call :checkEmpty "%msg%" commit信息不能为空
-%git_cmd% commit -m %msg% 
+%git_cmd% commit -m %msg%
 rem 将本地仓库的代码推送到远程代码仓库
 %git_cmd% push
 goto confirm
@@ -293,10 +293,11 @@ goto confirm
 :checkEmpty
 if %1% == "" (
 	call :error %2
+	goto confirm
+	pause>nul
+	exit;
 )
-goto confirm
-pause>nul
-exit;
+goto:eof
 
 :todo
 echo *******************************
@@ -351,7 +352,7 @@ echo off
 findstr /v /a:%1 /R "^$" "%~2" nul
 del "%~2" > nul 2>&1
 echo;
-goto:eof
+goto :eof
 
 :colorRedText
 call :colorText 0C %1
