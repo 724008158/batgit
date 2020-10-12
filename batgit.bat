@@ -40,12 +40,11 @@ echo *                          帮助信息                          *
 echo *  Author：L                                                 *
 echo *  Created：2020/10/10                                       *
 echo **************************************************************
-echo *  1: 拉取当前分支代码                                       *
-echo *  2: 拉取更新所有分支到本地                                 *
-echo *  3: 暂存修改文件                                           *
-echo *  4: 暂存修改恢复到项目中                                   *
+echo *  1: 拉取管理                                               *
+echo *  2: 分支管理                                               *
+echo *  3: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
-echo *  30: 提交提交所有更改或单个文件或目录                      *
+echo *  30: 提交所有更改或单个文件或目录                          *
 echo *  50: 查看分支                                              *
 echo *  51: 新建分支                                              *
 echo *  52: 合并分支                                              *
@@ -64,9 +63,9 @@ set input=1
 set /p input=请输入[默认1]:
 if "%input%"==""  goto git_pull
 if "%input%"=="1" goto git_pull
-if "%input%"=="2" goto git_pull_all
-if "%input%"=="3" goto git_stash_commit
-if "%input%"=="4" goto git_stash_renew
+if "%input%"=="2" goto git_branch
+if "%input%"=="3" goto git_stash
+if "%input%"=="4" goto todo
 if "%input%"=="5" goto git_clone
 if "%input%"=="30" goto git_push
 if "%input%"=="50" goto git_branch_list
@@ -83,18 +82,28 @@ goto help
 goto:eof
 exit
 
-:git_pull
-%git_cmd% pull
+
+rem 暂存管理[已测试]
+:git_stash
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:列出暂存列表
+echo 2:最新一个暂存信息
+echo 3:暂存数据
+echo 4:恢复之前缓存的工作目录
+set /p option=请选择：
+if "%option%" == "1" (
+	%git_cmd% stash list
+) else if "%option%" == "2" (
+	%git_cmd% stash show
+) else if "%option%" == "3" (
+	%git_cmd% stash save stash time:%timestamp% 
+) else if "%option%" == "4" (
+	%git_cmd% stash pop
+)
 goto confirm
 
-:git_stash_commit
-%git_cmd% stash
-goto confirm
-
-:git_stash_renew
-%git_cmd% stash pop
-goto confirm
-
+rem 克隆项目代码[已测试]
 :git_clone
 set files=
 set /p files=请输入克隆文件夹路径：
@@ -109,29 +118,41 @@ if "%url%" == "" (
 )
 %git_cmd% clone %url%
 set code_path=%files%
+rem 克隆完需自行切换路径，否则运行出可能问题
 echo 当前路径：%cd%
 goto confirm
 
-:git_pull_all
-echo -------更新所有分支-------
-rem 切换分支
-set current_branch=dev_ca_v1.0.0
-rem 需要更新的分支列表
-set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
-for %%I in (%pull_branch%) do (
-	%git_cmd% checkout %%I
-	%git_cmd% pull origin %%I
-	if not %errorlevel%==0 (
-		rem 成功则返回0
-		call :error 冲突了
+:git_pull
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:拉取当前分支
+echo 2:拉取分支列表[需在代码修改拉取的分支]
+set /p option=请选择：
+if "%option%" == "1" (
+	%git_cmd% pull
+) else if "%option%" == "2" (
+	echo -------更新所有分支-------
+	rem 完成后切换分支
+	set current_branch=dev_ca_v1.0.0
+	rem 需要更新的分支列表
+	set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
+	for %%I in (%pull_branch%) do (
+		%git_cmd% checkout %%I
+		%git_cmd% pull origin %%I
+		if not %errorlevel%==0 (
+			rem 成功则返回0
+			call :error 冲突了
+		)
 	)
-)
-rem 更新完切换分支
-%git_cmd% checkout %current_branch%
-echo -------更新完成----------
-echo -------当前分支%current_branch%----------
+	rem 更新完切换分支
+	%git_cmd% checkout %current_branch%
+	echo -------更新完成----------
+	echo -------当前分支%current_branch%----------
+	goto confirm
+) 
 goto confirm
 
+rem 推送代码[已测试]
 :git_push
 rem 查看本地仓库的当前状态
 %git_cmd% status
@@ -173,6 +194,7 @@ call :checkEmpty "%msg%" commit信息不能为空
 %git_cmd% commit -m %msg%
 rem 将本地仓库的代码推送到远程代码仓库
 %git_cmd% push
+call :checkErrorLevel %errorlevel%
 goto confirm
 
 rem 标签列表
@@ -183,6 +205,30 @@ goto confirm
 rem 日志列表
 :git_log_list
 %git_cmd% log -5
+goto confirm
+
+:git_branch
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:分支列表
+echo 2:创建分支
+echo 3:合并分支
+set /p option=请选择：
+if "%option%" == "1" (
+	goto git_branch_list
+) else if "%option%" == "2" (
+	goto git_branch_create
+	%git_cmd% branch -a
+) else if "%option%" == "3" (
+	goto git_branch_merge
+)
+goto confirm
+
+rem 创建分支
+:git_branch_create
+set /p name=请输入分支名称：
+call :checkEmpty "%name%" 分支名称不能为空
+git checkout -b %name%
 goto confirm
 
 rem 分支列表
@@ -261,6 +307,7 @@ rem 	call :error 合并前保证工作区干净。工作区有未跟踪的文件
 rem )
 goto:eof
 
+rem 获取git用户信息[已测试]
 :git_user_info
 echo -------查看git用户-------
 %git_cmd% config user.name
@@ -293,6 +340,15 @@ goto confirm
 :checkEmpty
 if %1% == "" (
 	call :error %2
+	goto confirm
+	pause>nul
+	exit;
+)
+goto:eof
+
+:checkErrorLevel
+if not %1% == 0 (
+	call :error 出错了，errorlevel为：%1%
 	goto confirm
 	pause>nul
 	exit;
