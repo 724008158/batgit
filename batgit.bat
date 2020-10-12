@@ -42,8 +42,7 @@ echo *  Created：2020/10/10                                       *
 echo **************************************************************
 echo *  1: 拉取当前分支代码                                       *
 echo *  2: 拉取更新所有分支到本地                                 *
-echo *  3: 暂存修改文件                                           *
-echo *  4: 暂存修改恢复到项目中                                   *
+echo *  3: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
 echo *  30: 提交提交所有更改或单个文件或目录                      *
 echo *  50: 查看分支                                              *
@@ -65,8 +64,8 @@ set /p input=请输入[默认1]:
 if "%input%"==""  goto git_pull
 if "%input%"=="1" goto git_pull
 if "%input%"=="2" goto git_pull_all
-if "%input%"=="3" goto git_stash_commit
-if "%input%"=="4" goto git_stash_renew
+if "%input%"=="3" goto git_stash
+if "%input%"=="4" goto todo
 if "%input%"=="5" goto git_clone
 if "%input%"=="30" goto git_push
 if "%input%"=="50" goto git_branch_list
@@ -87,14 +86,26 @@ exit
 %git_cmd% pull
 goto confirm
 
-:git_stash_commit
-%git_cmd% stash
+:git_stash
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:列出暂存列表
+echo 2:最新一个暂存信息
+echo 3:暂存数据
+echo 4:恢复之前缓存的工作目录
+set /p option=请选择：
+if "%option%" == "1" (
+	%git_cmd% stash list
+) else if "%option%" == "2" (
+	%git_cmd% stash show
+) else if "%option%" == "3" (
+	%git_cmd% stash
+) else if "%option%" == "4" (
+	%git_cmd% stash pop
+)
 goto confirm
 
-:git_stash_renew
-%git_cmd% stash pop
-goto confirm
-
+rem 克隆项目代码[已测试]
 :git_clone
 set files=
 set /p files=请输入克隆文件夹路径：
@@ -109,6 +120,7 @@ if "%url%" == "" (
 )
 %git_cmd% clone %url%
 set code_path=%files%
+rem 克隆完需自行切换路径，否则运行出可能问题
 echo 当前路径：%cd%
 goto confirm
 
@@ -132,6 +144,7 @@ echo -------更新完成----------
 echo -------当前分支%current_branch%----------
 goto confirm
 
+rem 推送代码[已测试]
 :git_push
 rem 查看本地仓库的当前状态
 %git_cmd% status
@@ -261,6 +274,7 @@ rem 	call :error 合并前保证工作区干净。工作区有未跟踪的文件
 rem )
 goto:eof
 
+rem 获取git用户信息[已测试]
 :git_user_info
 echo -------查看git用户-------
 %git_cmd% config user.name
