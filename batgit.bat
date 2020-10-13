@@ -1,9 +1,12 @@
 @echo off&title GIT批处理&color 0F
+rem 编写教程
+rem 控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
+
+
 rem 清屏
 cls
 rem 设置编码
 set LESSCHARSET=utf-8
-
 rem 初始化变量&数据
 goto init
 rem 显示帮助信息
@@ -41,10 +44,10 @@ echo *  Author：L                                                 *
 echo *  Created：2020/10/10                                       *
 echo **************************************************************
 echo *  1: 拉取管理                                               *
-echo *  2: 分支管理                                               *
-echo *  3: 暂存管理                                               *
+echo *  2: 提交管理                                               *
+echo *  3: 分支管理                                               *
+echo *  4: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
-echo *  30: 提交所有更改或单个文件或目录                          *
 echo *  50: 查看分支                                              *
 echo *  51: 新建分支                                              *
 echo *  52: 合并分支                                              *
@@ -60,14 +63,14 @@ echo **************************************************************
 echo;
 rem 设置默认值
 set input=1
-set /p input=请输入[默认1]:
+set /p "input=请输入[默认1]:"
 if "%input%"==""  goto git_pull
 if "%input%"=="1" goto git_pull
-if "%input%"=="2" goto git_branch
-if "%input%"=="3" goto git_stash
-if "%input%"=="4" goto todo
+if "%input%"=="2" goto git_push
+if "%input%"=="3" goto git_branch
+if "%input%"=="4" goto ogit_stash
 if "%input%"=="5" goto git_clone
-if "%input%"=="30" goto git_push
+if "%input%"=="30" goto tod
 if "%input%"=="50" goto git_branch_list
 if "%input%"=="51" goto todo
 if "%input%"=="52" goto git_branch_merge
@@ -91,7 +94,7 @@ echo 1:列出暂存列表
 echo 2:最新一个暂存信息
 echo 3:暂存数据
 echo 4:恢复之前缓存的工作目录
-set /p option=请选择：
+set /p "option=请选择："
 if "%option%" == "1" (
 	%git_cmd% stash list
 ) else if "%option%" == "2" (
@@ -106,7 +109,7 @@ goto confirm
 rem 克隆项目代码[已测试]
 :git_clone
 set files=
-set /p files=请输入克隆文件夹路径：
+set /p "files=请输入克隆文件夹路径："
 if "%files%" == "" (
 	call :error 克隆文件夹路径不能为空
 )
@@ -173,13 +176,13 @@ if not %errorlevel%==0 (
 	call :error 出错了，errorlevel为：%errorlevel%
 )
 rem 设置默认值
-set option=1
+set op=1
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
 set /p op=请选择:
-if %option% == "2" (
+if %op% == "2" (
 	set files=
-	set/p files=请输入要上传的文件或目录：
+	set /p "files=请输入要上传的文件或目录："
 	call :checkEmpty "%files%" 不能输入空数据
 	%git_cmd% add %files%
 ) else (
@@ -189,7 +192,7 @@ if %option% == "2" (
 	%git_cmd% add -A
 )
 set msg=
-set /p msg=输入提交的commit信息:
+set /p "msg=输入提交的commit信息:"
 call :checkEmpty "%msg%" commit信息不能为空
 %git_cmd% commit -m %msg%
 rem 将本地仓库的代码推送到远程代码仓库
@@ -207,14 +210,17 @@ rem 日志列表
 %git_cmd% log -5
 goto confirm
 
+rem 分支管理
 :git_branch
 set option=0
 echo 0:返回帮助信息[默认]
 echo 1:分支列表
 echo 2:创建分支
 echo 3:切换分支
-echo 4:合并分支
-set /p option=请选择：
+echo 4:推送分支
+echo 5:合并分支
+set /p "option=请选择："
+if "%option%" == "0" goto help
 if "%option%" == "1" (
 	goto git_branch_list
 ) else if "%option%" == "2" (
@@ -223,6 +229,8 @@ if "%option%" == "1" (
 ) else if "%option%" == "3" (
 	goto git_branch_checkout
 ) else if "%option%" == "4" (
+	goto git_branch_push
+) else if "%option%" == "5" (
 	goto git_branch_merge
 )
 goto confirm
@@ -230,23 +238,43 @@ goto confirm
 rem 创建分支
 :git_branch_create
 set name=
-set /p name=请输入分支名称：
+set /p "name=请输入分支名称："
 call :checkEmpty "%name%" 分支名称不能为空
 set option=0
 echo 0:返回帮助信息[默认]
 echo 1:创建分支[不切换]
 echo 2:创建分支并切换到创建的分支
-set /p option=请输入：
+set /p "option=请输入："
+if "%option%" == "0" goto help
 if "%option%" == "1" %git_cmd% checkout %name%
 if "%option%" == "2" %git_cmd% checkout -b %name%
+%git_cmd% branch
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:推送分支到远程
+set /p "option=是否推送分支，请输入："
+if "%option%" == "0" goto help
+rem --set-upstream 关联远程分支
+if "%option%" == "1" %git_cmd% push --set-upstream origin %name%
 goto confirm
 
 rem 切换分支
 :git_branch_checkout
+echo 分支列表：
+%git_cmd% branch -a
 set name=
-set /p name=请输入分支名称：
+set /p "name=请输入分支名称："
 call :checkEmpty "%name%" 分支名称不能为空
 %git_cmd% checkout %name%
+goto confirm
+
+rem 推送分支
+:git_branch_push
+set name=
+set /p "name=请输入分支名称："
+call :checkEmpty "%name%" 分支名称不能为空
+rem --set-upstream 关联远程分支
+%git_cmd% push --set-upstream  origin %name%
 goto confirm
 
 rem 分支列表
@@ -257,7 +285,8 @@ echo 1:列出本地分支
 echo 2:列出远程分支
 echo 3:列出所有本地分支和远程分支
 echo 4:列出当前分支
-set /p option=请选择：
+set /p "option=请选择："
+if "%option%" == "0" goto help
 if "%option%" == "1" (
 	%git_cmd% branch
 ) else if "%option%" == "2" (
@@ -274,15 +303,34 @@ rem 合并分支
 set option=0
 echo 0:返回帮助信息[默认]
 echo 1:dev_ca_v1.0.0 合并到 dev_v1.0.0
-set /p option=请选择：
-if "%option%" == "0" (
-	goto confirm
-) else if "%option%" == "1" (
+echo 99:自定义合并
+set /p "option=请选择："
+if "%option%" == "0" goto help
+if "%option%" == "1" (
 	rem 检查工作区是否干净
-	call:checkWorkingTree
+	call :checkWorkingTree
 	rem 合并分支
-	call:gitBranchMergeDo dev_ca_v1.0.0 dev_v1.0.0
-) else (
+	call :gitBranchMergeDo dev_ca_v1.0.0 dev_v1.0.0
+) else if "%option%" == "99" (
+	rem 检查工作区是否干净
+	call :checkWorkingTree
+	echo 分支列表：
+	%git_cmd% branch
+	set /p "target_branch=请输入目标分支名称："
+	call :checkEmpty "%target_branch%" 目标分支名称不能为空
+	set /p "local_branch=请输入当前分支名称："
+	call :checkEmpty "%local_branch%" 当前分支名称不能为空
+	echo 0:返回帮助信息[默认]
+	echo 1:把%target_branch%合并到%local_branch%
+	set /p "option_branch=请选择："
+	if "%option_branch%" == "0" goto help
+	if "%option_branch%" == "1" (
+		call:gitBranchMergeDo %target_branch% %local_branch%
+	) else (
+		echo %option_branch%
+		call :error 输入有误
+	)
+)  else (
 	call :error 输入有误
 )
 goto confirm
@@ -298,10 +346,12 @@ rem 切换到第二个参数分支
 rem 把源分支合并到目标分支
 %git_cmd% merge %1
 if not %errorlevel%==0 (
-	set op=y
-	echo y:即将push推送合并代码,%1推送合并到 %2分支[默认]
-	set /p op=请选择：
-	if "%option%" == "y" (
+	set option=0
+	echo 0:返回帮助信息[默认]
+	echo 1:即将push推送合并代码,%1推送合并到 %2分支
+	set /p option=请选择：
+	if "%option%" == "0" goto help
+	if "%option%" == "1" (
 		%git_cmd% push
 	) else (
 		call :error 输入有误,推送失败,请手动push推送
@@ -311,11 +361,11 @@ goto:eof
 
 ::rem 检查工作区是否干净
 :checkWorkingTree
-%git_cmd% diff --exit-code
+%git_cmd% diff --exit-code>nul
 if not %errorlevel%==0 (
 	call :error 合并前保证工作区干净。工作区有未暂存的更改
 )
-%git_cmd% diff --cached --exit-code
+%git_cmd% diff --cached --exit-code>nul
 if not %errorlevel%==0 (
 	call :error 合并前保证工作区干净。工作区有未commit的文件
 )
@@ -383,14 +433,14 @@ goto confirm
 echo;
 call :colorText 0b "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 call :colorText 0a "[[处理完成]]"
-set option=0
+set op=0
 echo 0:返回帮助信息[默认]
 echo 1:退出
 echo cmd:打开新的cmd命令窗口
-set /p option=请选择：
-if "%option%" == "1" (
+set /p op=请选择：
+if "%op%" == "1" (
 	goto exit
-) else if "%option%" == "cmd" (
+) else if "%op%" == "cmd" (
 	goto cmd
 )
 call :colorText 0b "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
