@@ -194,7 +194,7 @@ call :checkEmpty "%msg%" commit信息不能为空
 %git_cmd% commit -m %msg%
 rem 将本地仓库的代码推送到远程代码仓库
 %git_cmd% push
-call checkErrorLevel %errorlevel%
+call :checkErrorLevel %errorlevel%
 goto confirm
 
 rem 标签列表
@@ -207,12 +207,15 @@ rem 日志列表
 %git_cmd% log -5
 goto confirm
 
+rem 分支管理
 :git_branch
 set option=0
 echo 0:返回帮助信息[默认]
 echo 1:分支列表
 echo 2:创建分支
-echo 3:合并分支
+echo 3:切换分支
+echo 4:推送分支
+echo 5:合并分支
 set /p option=请选择：
 if "%option%" == "1" (
 	goto git_branch_list
@@ -220,15 +223,52 @@ if "%option%" == "1" (
 	goto git_branch_create
 	%git_cmd% branch -a
 ) else if "%option%" == "3" (
+	goto git_branch_checkout
+) else if "%option%" == "4" (
+	goto git_branch_push
+) else if "%option%" == "5" (
 	goto git_branch_merge
 )
 goto confirm
 
 rem 创建分支
 :git_branch_create
+set name=
 set /p name=请输入分支名称：
 call :checkEmpty "%name%" 分支名称不能为空
-git checkout -b %name%
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:创建分支[不切换]
+echo 2:创建分支并切换到创建的分支
+set /p option=请输入：
+if "%option%" == "0" goto help
+if "%option%" == "1" %git_cmd% checkout %name%
+if "%option%" == "2" %git_cmd% checkout -b %name%
+%git_cmd% branch
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:推送分支到远程
+set /p option=是否推送分支，请输入：
+if "%option%" == "0" goto help
+if "%option%" == "1" %git_cmd% push origin %name%
+goto confirm
+
+rem 切换分支
+:git_branch_checkout
+echo 分支列表：
+%git_cmd% branch -a
+set name=
+set /p name=请输入分支名称：
+call :checkEmpty "%name%" 分支名称不能为空
+%git_cmd% checkout %name%
+goto confirm
+
+rem 推送分支
+:git_branch_push
+set name=
+set /p name=请输入分支名称：
+call :checkEmpty "%name%" 分支名称不能为空
+%git_cmd% push origin %name%
 goto confirm
 
 rem 分支列表
@@ -240,6 +280,7 @@ echo 2:列出远程分支
 echo 3:列出所有本地分支和远程分支
 echo 4:列出当前分支
 set /p option=请选择：
+if "%option%" == "0" goto help
 if "%option%" == "1" (
 	%git_cmd% branch
 ) else if "%option%" == "2" (
@@ -257,9 +298,8 @@ set option=0
 echo 0:返回帮助信息[默认]
 echo 1:dev_ca_v1.0.0 合并到 dev_v1.0.0
 set /p option=请选择：
-if "%option%" == "0" (
-	goto confirm
-) else if "%option%" == "1" (
+if "%option%" == "0" goto help
+if "%option%" == "1" (
 	rem 检查工作区是否干净
 	call:checkWorkingTree
 	rem 合并分支
