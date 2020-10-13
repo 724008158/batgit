@@ -173,11 +173,11 @@ if not %errorlevel%==0 (
 	call :error 出错了，errorlevel为：%errorlevel%
 )
 rem 设置默认值
-set op=1
+set option=1
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
 set /p op=请选择:
-if %op% == "2" (
+if %option% == "2" (
 	set files=
 	set/p files=请输入要上传的文件或目录：
 	call :checkEmpty "%files%" 不能输入空数据
@@ -212,7 +212,8 @@ set option=0
 echo 0:返回帮助信息[默认]
 echo 1:分支列表
 echo 2:创建分支
-echo 3:合并分支
+echo 3:切换分支
+echo 4:合并分支
 set /p option=请选择：
 if "%option%" == "1" (
 	goto git_branch_list
@@ -220,15 +221,32 @@ if "%option%" == "1" (
 	goto git_branch_create
 	%git_cmd% branch -a
 ) else if "%option%" == "3" (
+	goto git_branch_checkout
+) else if "%option%" == "4" (
 	goto git_branch_merge
 )
 goto confirm
 
 rem 创建分支
 :git_branch_create
+set name=
 set /p name=请输入分支名称：
 call :checkEmpty "%name%" 分支名称不能为空
-git checkout -b %name%
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:创建分支[不切换]
+echo 2:创建分支并切换到创建的分支
+set /p option=请输入：
+if "%option%" == "1" %git_cmd% checkout %name%
+if "%option%" == "2" %git_cmd% checkout -b %name%
+goto confirm
+
+rem 切换分支
+:git_branch_checkout
+set name=
+set /p name=请输入分支名称：
+call :checkEmpty "%name%" 分支名称不能为空
+%git_cmd% checkout %name%
 goto confirm
 
 rem 分支列表
@@ -365,14 +383,14 @@ goto confirm
 echo;
 call :colorText 0b "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 call :colorText 0a "[[处理完成]]"
-set op=0
+set option=0
 echo 0:返回帮助信息[默认]
 echo 1:退出
 echo cmd:打开新的cmd命令窗口
-set /p op=请选择：
-if "%op%" == "1" (
+set /p option=请选择：
+if "%option%" == "1" (
 	goto exit
-) else if "%op%" == "cmd" (
+) else if "%option%" == "cmd" (
 	goto cmd
 )
 call :colorText 0b "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
