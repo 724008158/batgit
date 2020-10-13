@@ -250,7 +250,7 @@ echo 0:返回帮助信息[默认]
 echo 1:推送分支到远程
 set /p option=是否推送分支，请输入：
 if "%option%" == "0" goto help
-if "%option%" == "1" %git_cmd% push origin %name%
+if "%option%" == "1" %git_cmd% push --set-upstream origin %name%
 goto confirm
 
 rem 切换分支
@@ -268,7 +268,7 @@ rem 推送分支
 set name=
 set /p name=请输入分支名称：
 call :checkEmpty "%name%" 分支名称不能为空
-%git_cmd% push origin %name%
+%git_cmd% push --set-upstream  origin %name%
 goto confirm
 
 rem 分支列表
