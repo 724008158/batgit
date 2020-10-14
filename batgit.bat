@@ -2,6 +2,7 @@
 rem 编写教程
 rem 控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
 
+rem cmd /k "cd /d %code_path% & git pull"
 
 rem 清屏
 cls
@@ -48,11 +49,7 @@ echo *  2: 提交管理                                               *
 echo *  3: 分支管理                                               *
 echo *  4: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
-echo *  50: 查看分支                                              *
-echo *  51: 新建分支                                              *
-echo *  52: 合并分支                                              *
-echo *  60: 查看标签[q退出]                                       *
-echo *  61: 打标签                                                *
+echo *  6: 标签管理                                               *
 echo *  70: 查看日志[q退出]                                       *
 echo *  98: 查看git用户配置                                       *
 echo *  99: 修改git用户配置                                       *
@@ -70,11 +67,8 @@ if "%input%"=="2" goto git_push
 if "%input%"=="3" goto git_branch
 if "%input%"=="4" goto ogit_stash
 if "%input%"=="5" goto git_clone
-if "%input%"=="30" goto tod
-if "%input%"=="50" goto git_branch_list
-if "%input%"=="51" goto todo
-if "%input%"=="52" goto git_branch_merge
-if "%input%"=="60" goto git_tag_list
+if "%input%"=="6" goto git_tag
+if "%input%"=="30" goto todo
 if "%input%"=="70" goto git_log_list
 if "%input%"=="98" goto git_user_info
 if "%input%"=="99" goto git_user_update
@@ -115,7 +109,7 @@ if "%files%" == "" (
 )
 cd /d %files%
 set url=
-set /p url=请输入克隆地址：
+set /p "url=请输入克隆地址："
 if "%url%" == "" (
 	call :error 克隆地址不能为空
 )
@@ -127,47 +121,58 @@ goto confirm
 
 :git_pull
 set option=0
+rem 完成后切换分支
+rem set current_branch=dev_ca_v1.0.0
+set current_branch=main
+rem 需要更新的分支列表
+rem set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
+set pull_branch=main,test2
+
 echo 0:返回帮助信息[默认]
 echo 1:拉取当前分支
 echo 2:拉取分支列表[需在代码修改拉取的分支]
-set /p option=请选择：
+set /p "option=请选择："
 if "%option%" == "1" (
 	%git_cmd% pull
-) else if "%option%" == "2" (
-	echo -------更新所有分支-------
-	rem 完成后切换分支
-	set current_branch=dev_ca_v1.0.0
-	rem 需要更新的分支列表
-	set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
-	for %%I in (%pull_branch%) do (
-		%git_cmd% checkout %%I
-		%git_cmd% pull origin %%I
-		if not %errorlevel%==0 (
-			rem 成功则返回0
-			call :error 冲突了
+)
+if "%option%" == "2" (
+	rem todo 修复set问题 
+	set option_checkout=0
+	echo 0:返回帮助信息[默认]
+	echo 1:拉取%pull_branch%代码
+	set /p "option_checkout=请选择："
+	if "%option_checkout%" == "1" (
+		for %%I in (%pull_branch%) do (
+			%git_cmd% checkout %%I
+			%git_cmd% pull origin %%I
+			if not %errorlevel%==0 (
+				rem 成功则返回0
+				call :error 冲突了
+			)
 		)
+		rem 更新完切换分支
+		%git_cmd% checkout %current_branch%
 	)
-	rem 更新完切换分支
-	%git_cmd% checkout %current_branch%
-	echo -------更新完成----------
-	echo -------当前分支%current_branch%----------
-	goto confirm
 ) 
 goto confirm
 
 rem 推送代码[已测试]
 :git_push
+set option_stash=1
+echo 1:先stash暂存代码，再pull[默认]
+echo 2:直接pull
+set /p "option_stash=请选择:"
 rem 查看本地仓库的当前状态
-%git_cmd% status
+if %option_stash% == "1" %git_cmd% status
 rem 常看当前项目的具体修改内容
 rem %git_cmd% diff
 rem 保存当前的工作进度，会把暂存区和工作区的改动保存起来
-%git_cmd% stash save stash time:%timestamp% 
+if %option_stash% == "1" %git_cmd% stash save stash time:%timestamp% 
 rem 获取远程仓库的最新代码
 %git_cmd% pull
 rem 恢复最新的进度到工作区，这个过程会合并git pull到本地的远程仓库中的代码，这个过程可能会有冲突警告
 rem git stash不针对特定的分支，切换分支后，stash内容不变，所以弹出时要小心。git stash pop或者drop后，stash的序号会自动改变，连续弹出时要注意
-%git_cmd% stash pop
+if %option_stash% == "1" %git_cmd% stash pop
 if %errorlevel%==1 (
 	call :error 没有任何修改
 )
@@ -179,7 +184,7 @@ rem 设置默认值
 set op=1
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
-set /p op=请选择:
+set /p "op=请选择:"
 if %op% == "2" (
 	set files=
 	set /p "files=请输入要上传的文件或目录："
@@ -200,6 +205,19 @@ rem 将本地仓库的代码推送到远程代码仓库
 call :checkErrorLevel %errorlevel%
 goto confirm
 
+rem 标签管理
+:git_tag
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:标签列表[q退出]
+echo 2:标签创建
+set /p "option=请选择："
+if "%option%" == "1" (
+	goto git_tag_list
+) else if "%option%" == "2" (
+	goto todo
+)
+
 rem 标签列表
 :git_tag_list
 %git_cmd% tag
@@ -219,6 +237,7 @@ echo 2:创建分支
 echo 3:切换分支
 echo 4:推送分支
 echo 5:合并分支
+echo 6:删除分支
 set /p "option=请选择："
 if "%option%" == "0" goto help
 if "%option%" == "1" (
@@ -232,7 +251,27 @@ if "%option%" == "1" (
 	goto git_branch_push
 ) else if "%option%" == "5" (
 	goto git_branch_merge
+) else if "%option%" == "6" (
+	goto git_branch_delete
 )
+goto confirm
+
+:git_branch_delete
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:删除本地分支
+echo 2:删除远程分支
+set /p "option=请选择："
+echo 分支列表：
+if "%option%" == "1" %git_cmd% branch
+if "%option%" == "2" %git_cmd% branch -r
+set name=
+set /p "name=请输入要删除的分支名称："
+call :checkEmpty "%name%" 分支名称不能为空
+for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set current_branch=%%i)
+if "%current_branch%" == "%name%" call :error 不能删除当前分支
+if "%option%" == "1" %git_cmd% branch -d %name%
+if "%option%" == "2" %git_cmd% push origin --delete branch %name%
 goto confirm
 
 rem 创建分支
@@ -249,13 +288,13 @@ if "%option%" == "0" goto help
 if "%option%" == "1" %git_cmd% checkout %name%
 if "%option%" == "2" %git_cmd% checkout -b %name%
 %git_cmd% branch
-set option=0
+set option_push=0
 echo 0:返回帮助信息[默认]
 echo 1:推送分支到远程
-set /p "option=是否推送分支，请输入："
-if "%option%" == "0" goto help
+set /p "option_push=是否推送分支，请输入："
+if "%option_push%" == "0" goto help
 rem --set-upstream 关联远程分支
-if "%option%" == "1" %git_cmd% push --set-upstream origin %name%
+if "%option_push%" == "1" %git_cmd% push --set-upstream origin %name%
 goto confirm
 
 rem 切换分支
@@ -300,12 +339,11 @@ goto confirm
 
 rem 合并分支
 :git_branch_merge
-set option=0
 echo 0:返回帮助信息[默认]
 echo 1:dev_ca_v1.0.0 合并到 dev_v1.0.0
-echo 99:自定义合并
+echo 99:自定义合并[目标分支合并到当前分支]
 set /p "option=请选择："
-if "%option%" == "0" goto help
+call :gotoHelp %option%
 if "%option%" == "1" (
 	rem 检查工作区是否干净
 	call :checkWorkingTree
@@ -320,14 +358,14 @@ if "%option%" == "1" (
 	call :checkEmpty "%target_branch%" 目标分支名称不能为空
 	set /p "local_branch=请输入当前分支名称："
 	call :checkEmpty "%local_branch%" 当前分支名称不能为空
+	set option_branch=0
 	echo 0:返回帮助信息[默认]
 	echo 1:把%target_branch%合并到%local_branch%
 	set /p "option_branch=请选择："
-	if "%option_branch%" == "0" goto help
+	call :gotoHelp "%option_branch%"
 	if "%option_branch%" == "1" (
-		call:gitBranchMergeDo %target_branch% %local_branch%
+		call :gitBranchMergeDo %target_branch% %local_branch%
 	) else (
-		echo %option_branch%
 		call :error 输入有误
 	)
 )  else (
@@ -335,22 +373,32 @@ if "%option%" == "1" (
 )
 goto confirm
 
-::rem 合并分支。第一个参数源分支，第二个参数目标分支
+::rem 合并分支。第一个参数目标分支，第二个参数当前分支
 :gitBranchMergeDo
-rem 切换到第一个参数分支
+rem 切换到第一个参数分支[目标分支]
 %git_cmd% checkout %1
 %git_cmd% pull
-rem 切换到第二个参数分支
+if not %errorlevel%==0 (
+	call :error 拉取出现冲突,请手动解决
+)
+rem 切换到第二个参数分支[当前分支]
 %git_cmd% checkout %2
 %git_cmd% pull
-rem 把源分支合并到目标分支
+if not %errorlevel%==0 (
+	call :error 拉取出现冲突,请手动解决
+)
+rem 把目标分支合并到当前分支
 %git_cmd% merge %1
 if not %errorlevel%==0 (
+	%git_cmd% status
+	call :error 合并出现冲突,请手动解决
+)
+if %errorlevel%==0 (
 	set option=0
 	echo 0:返回帮助信息[默认]
-	echo 1:即将push推送合并代码,%1推送合并到 %2分支
-	set /p option=请选择：
-	if "%option%" == "0" goto help
+	echo 1:push推送合并代码,%1推送合并到 %2分支
+	set /p "option=请选择："
+	call :gotoHelp %option%
 	if "%option%" == "1" (
 		%git_cmd% push
 	) else (
@@ -389,13 +437,13 @@ rem 没验证功能，暂时终止
 exit
 echo -------修改git用户名email-------
 echo PS:请输入用户名
-set /p name=
+set /p "name="
 if "%name%" == "" (
 	echo 用户名不能为空
 	exit
 )
 echo 请输入email
-set /p email=
+set /p "email="
 if "%email%" == "" (
 	echo email不能为空
 	goto confirm
@@ -406,13 +454,18 @@ echo -------------修改成功-------------
 goto confirm
 
 :checkEmpty
-if %1% == "" (
-	call :error %2
+if "%1%" == "" (
+	call :error "%2"
 	goto confirm
 	pause>nul
 	exit;
 )
 goto:eof
+
+:gotoHelp
+if "%1%" == "" goto help
+if "%1%" == "0" goto help
+goto :eof
 
 :checkErrorLevel
 if not %1% == 0 (
@@ -437,7 +490,7 @@ set op=0
 echo 0:返回帮助信息[默认]
 echo 1:退出
 echo cmd:打开新的cmd命令窗口
-set /p op=请选择：
+set /p "op=请选择："
 if "%op%" == "1" (
 	goto exit
 ) else if "%op%" == "cmd" (
@@ -488,7 +541,7 @@ goto confirm
 
 :a
 set exe=cmd
-set /p exe=请输入windows下应用位置[例：cmd]
+set /p "exe=请输入windows下应用位置[例：cmd]"
 if "%exe%" == "" (
 	echo 查找的应用不能为空
 	goto confirm
@@ -499,7 +552,7 @@ goto confirm
 :b
 set files=%code_path%
 echo 请输入文件或文件夹路径,
-set /p files=[默认%code_path%]
+set /p "files=[默认%code_path%]"
 if "%files%" == "" (
 	start ""  %files%
 )else (
