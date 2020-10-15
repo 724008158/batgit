@@ -1,9 +1,12 @@
 @echo off&title GIT批处理&color 0F
-rem 编写教程
-rem 控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
+rem 编程注意
+rem 1.控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
+rem 2.bat中set命令放在if的括号里 【开启环境变bai量延迟setlocal enabledelayedexpansion 并把调用的变量%toos%改成!toos! 这是因为在du命令的zhi括号中执行set设置以及变量调用时，就不能dao用百分号了，因此先开启环境变量延迟，然后把百分号换成感叹号。】
+
 
 rem cmd /k "cd /d %code_path% & git pull"
 
+setlocal enabledelayedexpansion
 rem 清屏
 cls
 rem 设置编码
@@ -89,6 +92,7 @@ echo 2:最新一个暂存信息
 echo 3:暂存数据
 echo 4:恢复之前缓存的工作目录
 set /p "option=请选择："
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% stash list
 ) else if "%option%" == "2" (
@@ -121,37 +125,37 @@ goto confirm
 
 :git_pull
 set option=0
-rem 完成后切换分支
-rem set current_branch=dev_ca_v1.0.0
-set current_branch=main
-rem 需要更新的分支列表
-rem set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
-set pull_branch=main,test2
-
 echo 0:返回帮助信息[默认]
 echo 1:拉取当前分支
 echo 2:拉取分支列表[需在代码修改拉取的分支]
 set /p "option=请选择："
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% pull
 )
 if "%option%" == "2" (
-	rem todo 修复set问题 
-	set option_checkout=0
+	rem 完成后切换分支
+	rem set current_branch=dev_ca_v1.0.0
+	set current_branch=main
+	rem 需要更新的分支列表
+	rem set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
+	set pull_branch=main,test2
+	set option=0
 	echo 0:返回帮助信息[默认]
-	echo 1:拉取%pull_branch%代码
-	set /p "option_checkout=请选择："
-	if "%option_checkout%" == "1" (
-		for %%I in (%pull_branch%) do (
+	echo 1:拉取!pull_branch!代码,切换回!current_branch!分支
+	set /p "option=请选择："
+	call :gotoHelp %option%
+	if "!option!" == "1" (
+		for %%I in (!pull_branch!) do (
 			%git_cmd% checkout %%I
 			%git_cmd% pull origin %%I
-			if not %errorlevel%==0 (
+			if not !errorlevel!==0 (
 				rem 成功则返回0
 				call :error 冲突了
 			)
 		)
 		rem 更新完切换分支
-		%git_cmd% checkout %current_branch%
+		%git_cmd% checkout !current_branch!
 	)
 ) 
 goto confirm
@@ -181,15 +185,15 @@ if not %errorlevel%==0 (
 	call :error 出错了，errorlevel为：%errorlevel%
 )
 rem 设置默认值
-set op=1
+set option=1
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
-set /p "op=请选择:"
-if %op% == "2" (
+set /p "option=请选择:"
+if %option% == "2" (
 	set files=
 	set /p "files=请输入要上传的文件或目录："
-	call :checkEmpty "%files%" 不能输入空数据
-	%git_cmd% add %files%
+	call :checkEmpty "!files!" 不能输入空数据
+	%git_cmd% add !files!
 ) else (
 	rem git add -A  提交所有变化
 	rem git add -u  提交被修改(modified)和被删除(deleted)文件，不包括新文件(new)
@@ -212,6 +216,7 @@ echo 0:返回帮助信息[默认]
 echo 1:标签列表[q退出]
 echo 2:标签创建
 set /p "option=请选择："
+call :gotoHelp %option%
 if "%option%" == "1" (
 	goto git_tag_list
 ) else if "%option%" == "2" (
@@ -239,7 +244,7 @@ echo 4:推送分支
 echo 5:合并分支
 echo 6:删除分支
 set /p "option=请选择："
-if "%option%" == "0" goto help
+call :gotoHelp %option%
 if "%option%" == "1" (
 	goto git_branch_list
 ) else if "%option%" == "2" (
@@ -262,6 +267,7 @@ echo 0:返回帮助信息[默认]
 echo 1:删除本地分支
 echo 2:删除远程分支
 set /p "option=请选择："
+call :gotoHelp %option%
 echo 分支列表：
 if "%option%" == "1" %git_cmd% branch
 if "%option%" == "2" %git_cmd% branch -r
@@ -284,6 +290,7 @@ echo 0:返回帮助信息[默认]
 echo 1:创建分支[不切换]
 echo 2:创建分支并切换到创建的分支
 set /p "option=请输入："
+call :gotoHelp %option%
 if "%option%" == "0" goto help
 if "%option%" == "1" %git_cmd% checkout %name%
 if "%option%" == "2" %git_cmd% checkout -b %name%
@@ -292,6 +299,7 @@ set option_push=0
 echo 0:返回帮助信息[默认]
 echo 1:推送分支到远程
 set /p "option_push=是否推送分支，请输入："
+call :gotoHelp %option_push%
 if "%option_push%" == "0" goto help
 rem --set-upstream 关联远程分支
 if "%option_push%" == "1" %git_cmd% push --set-upstream origin %name%
@@ -325,7 +333,7 @@ echo 2:列出远程分支
 echo 3:列出所有本地分支和远程分支
 echo 4:列出当前分支
 set /p "option=请选择："
-if "%option%" == "0" goto help
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% branch
 ) else if "%option%" == "2" (
@@ -355,16 +363,16 @@ if "%option%" == "1" (
 	echo 分支列表：
 	%git_cmd% branch
 	set /p "target_branch=请输入目标分支名称："
-	call :checkEmpty "%target_branch%" 目标分支名称不能为空
+	call :checkEmpty "!target_branch!" 目标分支名称不能为空
 	set /p "local_branch=请输入当前分支名称："
-	call :checkEmpty "%local_branch%" 当前分支名称不能为空
+	call :checkEmpty "!local_branch!" 当前分支名称不能为空
 	set option_branch=0
 	echo 0:返回帮助信息[默认]
-	echo 1:把%target_branch%合并到%local_branch%
+	echo 1:把!target_branch!合并到!local_branch!
 	set /p "option_branch=请选择："
-	call :gotoHelp "%option_branch%"
-	if "%option_branch%" == "1" (
-		call :gitBranchMergeDo %target_branch% %local_branch%
+	call :gotoHelp !option_branch!
+	if "!option_branch!" == "1" (
+		call :gitBranchMergeDo !target_branch! !local_branch!
 	) else (
 		call :error 输入有误
 	)
@@ -398,8 +406,8 @@ if %errorlevel%==0 (
 	echo 0:返回帮助信息[默认]
 	echo 1:push推送合并代码,%1推送合并到 %2分支
 	set /p "option=请选择："
-	call :gotoHelp %option%
-	if "%option%" == "1" (
+	call :gotoHelp !option!
+	if "!option!" == "1" (
 		%git_cmd% push
 	) else (
 		call :error 输入有误,推送失败,请手动push推送
@@ -555,7 +563,7 @@ echo 请输入文件或文件夹路径,
 set /p "files=[默认%code_path%]"
 if "%files%" == "" (
 	start ""  %files%
-)else (
+) else (
 	start ""  %code_path%
 )
 goto confirm
