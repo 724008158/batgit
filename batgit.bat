@@ -166,21 +166,31 @@ goto confirm
 
 rem 推送代码[已测试]
 :git_push
-set option_stash=1
-echo 1:先stash暂存代码，再pull[默认]
+set option_stash=3
+echo 0:返回帮助信息[默认]
+echo 1:先stash暂存代码，再pull
 echo 2:直接pull
+echo 3:一键提交(自动add+commit+push)[默认]
 set /p "option_stash=请选择:"
+call :gotoHelp %option_stash%
+if "%option_stash%" == "3" (
+	%git_cmd% add -A
+	%git_cmd% commit -m '修复bug'
+	%git_cmd% push
+	call :checkErrorLevel %errorlevel%
+	goto confirm
+)
 rem 查看本地仓库的当前状态
-if %option_stash% == "1" %git_cmd% status
+if "%option_stash%" == "1" %git_cmd% status
 rem 常看当前项目的具体修改内容
 rem %git_cmd% diff
 rem 保存当前的工作进度，会把暂存区和工作区的改动保存起来
-if %option_stash% == "1" %git_cmd% stash save stash time:%timestamp% 
+if "%option_stash%" == "1" %git_cmd% stash save stash time:%timestamp% 
 rem 获取远程仓库的最新代码
 %git_cmd% pull
 rem 恢复最新的进度到工作区，这个过程会合并git pull到本地的远程仓库中的代码，这个过程可能会有冲突警告
 rem git stash不针对特定的分支，切换分支后，stash内容不变，所以弹出时要小心。git stash pop或者drop后，stash的序号会自动改变，连续弹出时要注意
-if %option_stash% == "1" %git_cmd% stash pop
+if "%option_stash%" == "1" %git_cmd% stash pop
 if %errorlevel%==1 (
 	call :error 没有任何修改
 )
@@ -190,9 +200,11 @@ if not %errorlevel%==0 (
 )
 rem 设置默认值
 set option=1
+echo 0:返回帮助信息
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
 set /p "option=请选择:"
+call :gotoHelp %option%
 if %option% == "2" (
 	set files=
 	set /p "files=请输入要上传的文件或目录："
