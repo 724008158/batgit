@@ -215,17 +215,102 @@ set option=0
 echo 0:返回帮助信息[默认]
 echo 1:标签列表[q退出]
 echo 2:标签创建
+echo 3:查看标签
+echo 4:删除标签
+echo 5:推送标签
+echo 6:查找标签
 set /p "option=请选择："
 call :gotoHelp %option%
 if "%option%" == "1" (
 	goto git_tag_list
 ) else if "%option%" == "2" (
-	goto todo
+	goto git_tag_create
+) else if "%option%" == "3" (
+	goto git_tag_show
+) else if "%option%" == "4" (
+	goto git_tag_del
+) else if "%option%" == "5" (
+	goto git_tag_push
+) else if "%option%" == "6" (
+	goto git_tag_find
 )
+goto confirm
 
 rem 标签列表
 :git_tag_list
 %git_cmd% tag
+goto confirm
+
+rem 标签创建
+:git_tag_create
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% tag %name%
+goto confirm
+
+:git_tag_show
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% tag -l "%name%*"
+goto confirm
+
+:git_tag_find
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% show %name%
+goto confirm
+
+:git_tag_push
+rem 默认情况下，git push 命令不会传送标签到远程仓库服务器上。 在创建完标签后必须显式地推送标签到远程仓库上。
+set option=1
+echo 0:返回帮助信息[默认]
+echo 1:推送单个标签
+echo 2:推送所有标签
+set /p "option=请选择："
+call :gotoHelp %option%
+if "%option%" == "2" (
+	%git_cmd% push origin --tags
+	goto confirm
+)
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+if "%option%" == "1" (
+	%git_cmd% push origin %name%
+)
+
+:git_tag_del
+set option=1
+echo 0:返回帮助信息[默认]
+echo 1:删除本地标签
+echo 2:删除远程标签
+echo 3:删除本地所有标签
+set /p "option=请选择："
+call :gotoHelp %option%
+if "%option%" == "3" (
+	goto git_tag_del_local_all
+	goto confirm
+)
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+if "%option%" == "1" (
+	%git_cmd% tag -d %name%
+)
+if "%option%" == "2" (
+	%git_cmd% push origin --delete %name%
+)
+goto confirm
+
+rem 删除本地所有标签
+:git_tag_del_local_all
+rem 先删除,保证清除掉本地添加但还没有推送到远程服务器的标签
+%git_cmd% tag -l | xargs %git_cmd% tag -d
+rem 再更新
+%git_cmd% fetch --tags
 goto confirm
 
 rem 日志列表
