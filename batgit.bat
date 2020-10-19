@@ -177,7 +177,6 @@ if "%option_stash%" == "3" (
 	%git_cmd% add -A
 	%git_cmd% commit -m '修复bug'
 	%git_cmd% push
-	call :checkErrorLevel %errorlevel%
 	goto confirm
 )
 rem 查看本地仓库的当前状态
