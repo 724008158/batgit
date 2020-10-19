@@ -36,14 +36,14 @@ rem goto:eof
 
 :help
 rem 当前分支
-for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set current_branch=%%i)
+for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set now_branch=%%i)
 set d=%date:~0,10%
 set t=%time:~0,8%
 rem 当前时间
 set timestamp=%d% %t%
 rem 输出项目路径
 echo 当前时间：%timestamp%
-echo 当前分支：%current_branch%
+echo 当前分支：%now_branch%
 echo 当前项目路径：%code_path%
 echo **************************************************************
 echo *                          帮助信息                          *
@@ -56,7 +56,7 @@ echo *  3: 分支管理                                               *
 echo *  4: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
 echo *  6: 标签管理                                               *
-echo *  70: 查看日志[q退出]                                       *
+echo *  7: 查看日志[q退出]                                       *
 echo *  98: 查看git用户配置                                       *
 echo *  99: 修改git用户配置                                       *
 echo *  a: 查找windows下应用位置,例：cmd                          *
@@ -75,7 +75,7 @@ if "%input%"=="3" goto git_branch
 if "%input%"=="4" goto ogit_stash
 if "%input%"=="5" goto git_clone
 if "%input%"=="6" goto git_tag
-if "%input%"=="70" goto git_log_list
+if "%input%"=="7" goto git_log_list
 if "%input%"=="98" goto git_user_info
 if "%input%"=="99" goto git_user_update
 if "%input%"=="a" goto a
