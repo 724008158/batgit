@@ -35,12 +35,15 @@ cd /d  %code_path%
 rem goto:eof
 
 :help
+rem 当前分支
+for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set current_branch=%%i)
 set d=%date:~0,10%
 set t=%time:~0,8%
 rem 当前时间
 set timestamp=%d% %t%
 rem 输出项目路径
 echo 当前时间：%timestamp%
+echo 当前分支：%current_branch%
 echo 当前项目路径：%code_path%
 echo **************************************************************
 echo *                          帮助信息                          *
@@ -59,6 +62,7 @@ echo *  99: 修改git用户配置                                       *
 echo *  a: 查找windows下应用位置,例：cmd                          *
 echo *  b: 打开文件或文件夹                                       *
 echo *  cmd: 打开新的cmd命令窗口                                  *
+echo *  exit: 退出cmd                                             *
 echo **************************************************************
 echo;
 rem 设置默认值
@@ -71,13 +75,13 @@ if "%input%"=="3" goto git_branch
 if "%input%"=="4" goto ogit_stash
 if "%input%"=="5" goto git_clone
 if "%input%"=="6" goto git_tag
-if "%input%"=="30" goto todo
 if "%input%"=="70" goto git_log_list
 if "%input%"=="98" goto git_user_info
 if "%input%"=="99" goto git_user_update
 if "%input%"=="a" goto a
 if "%input%"=="b" goto b
 if "%input%"=="cmd" goto cmd
+if "%input%"=="exit" goto exit
 goto help
 goto:eof
 exit
@@ -281,6 +285,7 @@ call :checkEmpty "%name%" 标签名称不能为空
 if "%option%" == "1" (
 	%git_cmd% push origin %name%
 )
+goto confirm
 
 :git_tag_del
 set option=1
