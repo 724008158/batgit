@@ -1,8 +1,12 @@
 @echo off&title GIT批处理&color 0F
-rem 编写教程
-rem 控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
+rem 编程注意
+rem 1.控制单句不在屏幕上出现，有两种办法： 1.语句前加@例如 @cd / 2.语句后加 >nul 或 >nul 2>nul
+rem 2.bat中set命令放在if的括号里 【开启环境变bai量延迟setlocal enabledelayedexpansion 并把调用的变量%toos%改成!toos! 这是因为在du命令的zhi括号中执行set设置以及变量调用时，就不能dao用百分号了，因此先开启环境变量延迟，然后把百分号换成感叹号。】
 
 
+rem cmd /k "cd /d %code_path% & git pull"
+
+setlocal enabledelayedexpansion
 rem 清屏
 cls
 rem 设置编码
@@ -31,12 +35,15 @@ cd /d  %code_path%
 rem goto:eof
 
 :help
+rem 当前分支
+for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set now_branch=%%i)
 set d=%date:~0,10%
 set t=%time:~0,8%
 rem 当前时间
 set timestamp=%d% %t%
 rem 输出项目路径
 echo 当前时间：%timestamp%
+echo 当前分支：%now_branch%
 echo 当前项目路径：%code_path%
 echo **************************************************************
 echo *                          帮助信息                          *
@@ -48,17 +55,14 @@ echo *  2: 提交管理                                               *
 echo *  3: 分支管理                                               *
 echo *  4: 暂存管理                                               *
 echo *  5: 克隆项目                                               *
-echo *  50: 查看分支                                              *
-echo *  51: 新建分支                                              *
-echo *  52: 合并分支                                              *
-echo *  60: 查看标签[q退出]                                       *
-echo *  61: 打标签                                                *
-echo *  70: 查看日志[q退出]                                       *
+echo *  6: 标签管理                                               *
+echo *  7: 查看日志[q退出]                                       *
 echo *  98: 查看git用户配置                                       *
 echo *  99: 修改git用户配置                                       *
 echo *  a: 查找windows下应用位置,例：cmd                          *
 echo *  b: 打开文件或文件夹                                       *
 echo *  cmd: 打开新的cmd命令窗口                                  *
+echo *  exit: 退出cmd                                             *
 echo **************************************************************
 echo;
 rem 设置默认值
@@ -70,17 +74,14 @@ if "%input%"=="2" goto git_push
 if "%input%"=="3" goto git_branch
 if "%input%"=="4" goto ogit_stash
 if "%input%"=="5" goto git_clone
-if "%input%"=="30" goto tod
-if "%input%"=="50" goto git_branch_list
-if "%input%"=="51" goto todo
-if "%input%"=="52" goto git_branch_merge
-if "%input%"=="60" goto git_tag_list
-if "%input%"=="70" goto git_log_list
+if "%input%"=="6" goto git_tag
+if "%input%"=="7" goto git_log_list
 if "%input%"=="98" goto git_user_info
 if "%input%"=="99" goto git_user_update
 if "%input%"=="a" goto a
 if "%input%"=="b" goto b
 if "%input%"=="cmd" goto cmd
+if "%input%"=="exit" goto exit
 goto help
 goto:eof
 exit
@@ -95,6 +96,7 @@ echo 2:最新一个暂存信息
 echo 3:暂存数据
 echo 4:恢复之前缓存的工作目录
 set /p "option=请选择："
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% stash list
 ) else if "%option%" == "2" (
@@ -115,7 +117,7 @@ if "%files%" == "" (
 )
 cd /d %files%
 set url=
-set /p "url=请输入克隆地址：
+set /p "url=请输入克隆地址："
 if "%url%" == "" (
 	call :error 克隆地址不能为空
 )
@@ -130,44 +132,64 @@ set option=0
 echo 0:返回帮助信息[默认]
 echo 1:拉取当前分支
 echo 2:拉取分支列表[需在代码修改拉取的分支]
-set /p "option=请选择：
+set /p "option=请选择："
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% pull
-) else if "%option%" == "2" (
-	echo -------更新所有分支-------
+)
+if "%option%" == "2" (
 	rem 完成后切换分支
-	set current_branch=dev_ca_v1.0.0
+	rem set current_branch=dev_ca_v1.0.0
+	set current_branch=main
 	rem 需要更新的分支列表
-	set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
-	for %%I in (%pull_branch%) do (
-		%git_cmd% checkout %%I
-		%git_cmd% pull origin %%I
-		if not %errorlevel%==0 (
-			rem 成功则返回0
-			call :error 冲突了
+	rem set pull_branch=dev_ca_v1.0.0 dev_v1.0.0
+	set pull_branch=main,test2
+	set option=0
+	echo 0:返回帮助信息[默认]
+	echo 1:拉取!pull_branch!代码,切换回!current_branch!分支
+	set /p "option=请选择："
+	call :gotoHelp %option%
+	if "!option!" == "1" (
+		for %%I in (!pull_branch!) do (
+			%git_cmd% checkout %%I
+			%git_cmd% pull origin %%I
+			if not !errorlevel!==0 (
+				rem 成功则返回0
+				call :error 冲突了
+			)
 		)
+		rem 更新完切换分支
+		%git_cmd% checkout !current_branch!
 	)
-	rem 更新完切换分支
-	%git_cmd% checkout %current_branch%
-	echo -------更新完成----------
-	echo -------当前分支%current_branch%----------
-	goto confirm
 ) 
 goto confirm
 
 rem 推送代码[已测试]
 :git_push
+set option_stash=3
+echo 0:返回帮助信息[默认]
+echo 1:先stash暂存代码，再pull
+echo 2:直接pull
+echo 3:一键提交(自动add+commit+push)[默认]
+set /p "option_stash=请选择:"
+call :gotoHelp %option_stash%
+if "%option_stash%" == "3" (
+	%git_cmd% add -A
+	%git_cmd% commit -m '修复bug'
+	%git_cmd% push
+	goto confirm
+)
 rem 查看本地仓库的当前状态
-%git_cmd% status
+if "%option_stash%" == "1" %git_cmd% status
 rem 常看当前项目的具体修改内容
 rem %git_cmd% diff
 rem 保存当前的工作进度，会把暂存区和工作区的改动保存起来
-%git_cmd% stash save stash time:%timestamp% 
+if "%option_stash%" == "1" %git_cmd% stash save stash time:%timestamp% 
 rem 获取远程仓库的最新代码
 %git_cmd% pull
 rem 恢复最新的进度到工作区，这个过程会合并git pull到本地的远程仓库中的代码，这个过程可能会有冲突警告
 rem git stash不针对特定的分支，切换分支后，stash内容不变，所以弹出时要小心。git stash pop或者drop后，stash的序号会自动改变，连续弹出时要注意
-%git_cmd% stash pop
+if "%option_stash%" == "1" %git_cmd% stash pop
 if %errorlevel%==1 (
 	call :error 没有任何修改
 )
@@ -176,15 +198,17 @@ if not %errorlevel%==0 (
 	call :error 出错了，errorlevel为：%errorlevel%
 )
 rem 设置默认值
-set op=1
+set option=1
+echo 0:返回帮助信息
 echo 1:提交所有更改[默认]
 echo 2:自定义提交文件或目录
-set /p "op=请选择:
-if %op% == "2" (
+set /p "option=请选择:"
+call :gotoHelp %option%
+if %option% == "2" (
 	set files=
 	set /p "files=请输入要上传的文件或目录："
-	call :checkEmpty "%files%" 不能输入空数据
-	%git_cmd% add %files%
+	call :checkEmpty "!files!" 不能输入空数据
+	%git_cmd% add !files!
 ) else (
 	rem git add -A  提交所有变化
 	rem git add -u  提交被修改(modified)和被删除(deleted)文件，不包括新文件(new)
@@ -200,9 +224,109 @@ rem 将本地仓库的代码推送到远程代码仓库
 call :checkErrorLevel %errorlevel%
 goto confirm
 
+rem 标签管理
+:git_tag
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:标签列表[q退出]
+echo 2:标签创建
+echo 3:查看标签
+echo 4:删除标签
+echo 5:推送标签
+echo 6:查找标签
+set /p "option=请选择："
+call :gotoHelp %option%
+if "%option%" == "1" (
+	goto git_tag_list
+) else if "%option%" == "2" (
+	goto git_tag_create
+) else if "%option%" == "3" (
+	goto git_tag_show
+) else if "%option%" == "4" (
+	goto git_tag_del
+) else if "%option%" == "5" (
+	goto git_tag_push
+) else if "%option%" == "6" (
+	goto git_tag_find
+)
+goto confirm
+
 rem 标签列表
 :git_tag_list
 %git_cmd% tag
+goto confirm
+
+rem 标签创建
+:git_tag_create
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% tag %name%
+goto confirm
+
+:git_tag_show
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% tag -l "%name%*"
+goto confirm
+
+:git_tag_find
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+%git_cmd% show %name%
+goto confirm
+
+:git_tag_push
+rem 默认情况下，git push 命令不会传送标签到远程仓库服务器上。 在创建完标签后必须显式地推送标签到远程仓库上。
+set option=1
+echo 0:返回帮助信息[默认]
+echo 1:推送单个标签
+echo 2:推送所有标签
+set /p "option=请选择："
+call :gotoHelp %option%
+if "%option%" == "2" (
+	%git_cmd% push origin --tags
+	goto confirm
+)
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+if "%option%" == "1" (
+	%git_cmd% push origin %name%
+)
+goto confirm
+
+:git_tag_del
+set option=1
+echo 0:返回帮助信息[默认]
+echo 1:删除本地标签
+echo 2:删除远程标签
+echo 3:删除本地所有标签
+set /p "option=请选择："
+call :gotoHelp %option%
+if "%option%" == "3" (
+	goto git_tag_del_local_all
+	goto confirm
+)
+set name=
+set /p "name=请输入标签名称："
+call :checkEmpty "%name%" 标签名称不能为空
+if "%option%" == "1" (
+	%git_cmd% tag -d %name%
+)
+if "%option%" == "2" (
+	%git_cmd% push origin --delete %name%
+)
+goto confirm
+
+rem 删除本地所有标签
+:git_tag_del_local_all
+rem 先删除,保证清除掉本地添加但还没有推送到远程服务器的标签
+%git_cmd% tag -l | xargs %git_cmd% tag -d
+rem 再更新
+%git_cmd% fetch --tags
 goto confirm
 
 rem 日志列表
@@ -219,8 +343,9 @@ echo 2:创建分支
 echo 3:切换分支
 echo 4:推送分支
 echo 5:合并分支
+echo 6:删除分支
 set /p "option=请选择："
-if "%option%" == "0" goto help
+call :gotoHelp %option%
 if "%option%" == "1" (
 	goto git_branch_list
 ) else if "%option%" == "2" (
@@ -232,7 +357,28 @@ if "%option%" == "1" (
 	goto git_branch_push
 ) else if "%option%" == "5" (
 	goto git_branch_merge
+) else if "%option%" == "6" (
+	goto git_branch_delete
 )
+goto confirm
+
+:git_branch_delete
+set option=0
+echo 0:返回帮助信息[默认]
+echo 1:删除本地分支
+echo 2:删除远程分支
+set /p "option=请选择："
+call :gotoHelp %option%
+echo 分支列表：
+if "%option%" == "1" %git_cmd% branch
+if "%option%" == "2" %git_cmd% branch -r
+set name=
+set /p "name=请输入要删除的分支名称："
+call :checkEmpty "%name%" 分支名称不能为空
+for /F %%i in ('%git_cmd% symbolic-ref --short -q HEAD') do ( set current_branch=%%i)
+if "%current_branch%" == "%name%" call :error 不能删除当前分支
+if "%option%" == "1" %git_cmd% branch -d %name%
+if "%option%" == "2" %git_cmd% push origin --delete branch %name%
 goto confirm
 
 rem 创建分支
@@ -245,6 +391,7 @@ echo 0:返回帮助信息[默认]
 echo 1:创建分支[不切换]
 echo 2:创建分支并切换到创建的分支
 set /p "option=请输入："
+call :gotoHelp %option%
 if "%option%" == "0" goto help
 if "%option%" == "1" %git_cmd% checkout %name%
 if "%option%" == "2" %git_cmd% checkout -b %name%
@@ -253,6 +400,7 @@ set option_push=0
 echo 0:返回帮助信息[默认]
 echo 1:推送分支到远程
 set /p "option_push=是否推送分支，请输入："
+call :gotoHelp %option_push%
 if "%option_push%" == "0" goto help
 rem --set-upstream 关联远程分支
 if "%option_push%" == "1" %git_cmd% push --set-upstream origin %name%
@@ -286,7 +434,7 @@ echo 2:列出远程分支
 echo 3:列出所有本地分支和远程分支
 echo 4:列出当前分支
 set /p "option=请选择："
-if "%option%" == "0" goto help
+call :gotoHelp %option%
 if "%option%" == "1" (
 	%git_cmd% branch
 ) else if "%option%" == "2" (
@@ -316,16 +464,16 @@ if "%option%" == "1" (
 	echo 分支列表：
 	%git_cmd% branch
 	set /p "target_branch=请输入目标分支名称："
-	call :checkEmpty "%target_branch%" 目标分支名称不能为空
+	call :checkEmpty "!target_branch!" 目标分支名称不能为空
 	set /p "local_branch=请输入当前分支名称："
-	call :checkEmpty "%local_branch%" 当前分支名称不能为空
+	call :checkEmpty "!local_branch!" 当前分支名称不能为空
 	set option_branch=0
 	echo 0:返回帮助信息[默认]
-	echo 1:把%target_branch%合并到%local_branch%
+	echo 1:把!target_branch!合并到!local_branch!
 	set /p "option_branch=请选择："
-	call :gotoHelp "%option_branch%"
-	if "%option_branch%" == "1" (
-		call :gitBranchMergeDo %target_branch% %local_branch%
+	call :gotoHelp !option_branch!
+	if "!option_branch!" == "1" (
+		call :gitBranchMergeDo !target_branch! !local_branch!
 	) else (
 		call :error 输入有误
 	)
@@ -359,8 +507,8 @@ if %errorlevel%==0 (
 	echo 0:返回帮助信息[默认]
 	echo 1:push推送合并代码,%1推送合并到 %2分支
 	set /p "option=请选择："
-	call :gotoHelp %option%
-	if "%option%" == "1" (
+	call :gotoHelp !option!
+	if "!option!" == "1" (
 		%git_cmd% push
 	) else (
 		call :error 输入有误,推送失败,请手动push推送
@@ -516,7 +664,7 @@ echo 请输入文件或文件夹路径,
 set /p "files=[默认%code_path%]"
 if "%files%" == "" (
 	start ""  %files%
-)else (
+) else (
 	start ""  %code_path%
 )
 goto confirm
