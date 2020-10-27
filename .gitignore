@@ -30,3 +30,5 @@ phpunit.phar
 
 #自定义忽略文件
 .git
+
+read.md
